@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Login</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="container">
+        <div id="login-form">
+            <h2>Login</h2>
+            <input type="text" id="login-username" placeholder="Username" required>
+            <input type="password" id="login-password" placeholder="Password" required>
+            <button onclick="login()">Login</button>
+            <p>Don't have an account? <a href="#" onclick="showRegister()">Register here</a></p>
+        </div>
+
+        <div id="register-form" style="display: none;">
+            <h2>Register</h2>
+            <input type="text" id="register-username" placeholder="Username" required>
+            <input type="password" id="register-password" placeholder="Password" required>
+            <input type="text" id="register-nickname" placeholder="Nickname" required>
+            <input type="text" id="register-mobile" placeholder="Mobile Number" required>
+            <input type="text" id="register-image-url" placeholder="Image URL (optional)">
+            <button onclick="register()">Register</button>
+            <p>Already have an account? <a href="#" onclick="showLogin()">Login here</a></p>
+        </div>
+
+        <div id="user-data" style="display: none;">
+            <h2>Welcome, <span id="display-name"></span>!</h2>
+            <img id="user-image" src="" alt="User Image" class="user-image">
+            <h3>Your Details:</h3>
+            <p>Nickname: <span id="display-nickname"></span></p>
+            <p>Mobile Number: <span id="display-mobile"></span></p>
+            <h3>Update Image</h3>
+            <input type="text" id="update-image-url" placeholder="New Image URL">
+            <button onclick="updateImage()">Update Image</button>
+            <p><a href="#" onclick="logout()">Logout</a></p>
+        </div>
+    </div>
+
+    <script>
+        let currentUsername = '';
+
+        async function login() {
+            const username = document.getElementById("login-username").value;
+            const password = document.getElementById("login-password").value;
+
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                currentUsername = username; // Store the current username
+                document.getElementById("display-name").innerText = data.user.nickname || data.user.username;
+                document.getElementById("display-nickname").innerText = data.user.nickname || '';
+                document.getElementById("display-mobile").innerText = data.user.mobile || '';
+
+                // Fetch user-specific JSON data
+                await fetchUserImages(data.user.json_file_name);
+
+                document.getElementById("login-form").style.display = "none";
+                document.getElementById("user-data").style.display = "block";
+            } else {
+                alert(data.error || 'Login failed');
+            }
+        }
+
+        async function fetchUserImages(jsonFileName) {
+            const userJsonUrl = `https://json.bharathims.tech/${jsonFileName}`; // Update based on your S3/CloudFront setup
+
+            try {
+                const imageResponse = await fetch(userJsonUrl);
+                if (imageResponse.ok) {
+                    const userImages = await imageResponse.json();
+                    console.log('User images fetched:', userImages);
+                    document.getElementById("user-image").src = userImages.imageUrl || ''; // Update user image
+                } else {
+                    console.error('Failed to fetch user images:', imageResponse.statusText);
+                }
+            } catch (error) {
+                console.error('Error fetching images:', error);
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById("register-username").value;
+            const password = document.getElementById("register-password").value;
+            const nickname = document.getElementById("register-nickname").value;
+            const mobile = document.getElementById("register-mobile").value;
+            const imageUrl = document.getElementById("register-image-url").value;
+
+            const response = await fetch('/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, nickname, mobile, imageUrl })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert('Registration successful! You can now log in.');
+                showLogin();
+            } else {
+                alert(data.error || 'Registration failed');
+            }
+        }
+
+        function showRegister() {
+            document.getElementById("login-form").style.display = "none";
+            document.getElementById("register-form").style.display = "block";
+        }
+
+        function showLogin() {
+            document.getElementById("register-form").style.display = "none";
+            document.getElementById("login-form").style.display = "block";
+        }
+
+        async function updateImage() {
+            const imageUrl = document.getElementById("update-image-url").value;
+
+            const response = await fetch('/update-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: currentUsername, imageUrl })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert('Image updated successfully!');
+                await fetchUserImages(data.jsonFileName); // Fetch updated image
+            } else {
+                alert(data.error || 'Image update failed');
+            }
+        }
+
+        function logout() {
+            currentUsername = ''; // Clear current username
+            document.getElementById("login-form").style.display = "block";
+            document.getElementById("user-data").style.display = "none";
+            document.getElementById("register-form").style.display = "none";
+            document.getElementById("login-username").value = "";
+            document.getElementById("login-password").value = "";
+        }
+    </script>
+</body>
+</html>
